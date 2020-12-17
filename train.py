@@ -67,25 +67,14 @@ if __name__ == '__main__':
             g_update_first = True
             batch_size = data.size(0)
             running_results['batch_sizes'] += batch_size
-    
-            ############################
-            # (1) Update D network: maximize D(x)-1-D(G(z))
-            ###########################
+
             real_img = Variable(target)
             if torch.cuda.is_available():
                 real_img = real_img.cuda()
             z = Variable(data)
             if torch.cuda.is_available():
                 z = z.cuda()
-            fake_img = netG(z)
-    
-            netD.zero_grad()
-            real_out = netD(real_img).mean()
-            fake_out = netD(fake_img).mean()
-            d_loss = 1 - real_out + fake_out
-            d_loss.backward(retain_graph=True)
-            optimizerD.step()
-    
+
             ############################
             # (2) Update G network: minimize 1-D(G(z)) + Perception Loss + Image Loss + TV Loss
             ###########################
@@ -95,10 +84,26 @@ if __name__ == '__main__':
             fake_out = netD(fake_img).mean()
 
             g_loss = generator_criterion(fake_out, fake_img, real_img)
-            g_loss.backward()
 
+            g_loss.backward()
             optimizerG.step()
 
+            ############################
+            # (1) Update D network: maximize D(x)-1-D(G(z))
+            ###########################
+            # fake_img = netG(z)
+    
+            netD.zero_grad()
+            real_out = netD(real_img).mean()
+            fake_out = netD(fake_img.detach()).mean()
+            d_loss = 1 - real_out + fake_out
+
+            d_loss.backward()
+            optimizerD.step()
+    
+            ############################
+            # Log progress
+            ###########################
             # loss for current batch before optimization 
             running_results['g_loss'] += g_loss.item() * batch_size
             running_results['d_loss'] += d_loss.item() * batch_size
