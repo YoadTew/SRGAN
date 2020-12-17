@@ -1,6 +1,7 @@
 import argparse
 import os
 from math import log10
+import sys
 
 import numpy as np
 import pandas as pd
@@ -30,8 +31,15 @@ if torch.cuda.is_available():
     model = model.cuda()
 model.load_state_dict(torch.load('epochs/' + MODEL_NAME))
 
+if sys.gettrace() is None:  # Not debug
+    n_workers = 4
+else:  # Debug
+    n_workers = 0
+
+print(f'workers {n_workers}')
+
 test_set = TestDatasetFromFolder('data/test', upscale_factor=UPSCALE_FACTOR)
-test_loader = DataLoader(dataset=test_set, num_workers=4, batch_size=1, shuffle=False)
+test_loader = DataLoader(dataset=test_set, num_workers=n_workers, batch_size=1, shuffle=False)
 test_bar = tqdm(test_loader, desc='[testing benchmark datasets]')
 
 out_path = 'benchmark_results/SRF_' + str(UPSCALE_FACTOR) + '/'
@@ -49,7 +57,7 @@ for image_name, lr_image, hr_restore_img, hr_image in test_bar:
     sr_image = model(lr_image)
     mse = ((hr_image - sr_image) ** 2).data.mean()
     psnr = 10 * log10(1 / mse)
-    ssim = pytorch_ssim.ssim(sr_image, hr_image).data[0]
+    ssim = pytorch_ssim.ssim(sr_image, hr_image).item()  # .data[0]
 
     test_images = torch.stack(
         [display_transform()(hr_restore_img.squeeze(0)), display_transform()(hr_image.data.cpu().squeeze(0)),

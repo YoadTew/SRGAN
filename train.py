@@ -1,6 +1,7 @@
 import argparse
 import os
 from math import log10
+import sys
 
 import pandas as pd
 import torch.optim as optim
@@ -28,11 +29,16 @@ if __name__ == '__main__':
     CROP_SIZE = opt.crop_size
     UPSCALE_FACTOR = opt.upscale_factor
     NUM_EPOCHS = opt.num_epochs
-    
-    train_set = TrainDatasetFromFolder('data/DIV2K_train_HR', crop_size=CROP_SIZE, upscale_factor=UPSCALE_FACTOR)
-    val_set = ValDatasetFromFolder('data/DIV2K_valid_HR', upscale_factor=UPSCALE_FACTOR)
-    train_loader = DataLoader(dataset=train_set, num_workers=4, batch_size=64, shuffle=True)
-    val_loader = DataLoader(dataset=val_set, num_workers=4, batch_size=1, shuffle=False)
+
+    if sys.gettrace() is None:  # Not debug
+        n_workers = 4
+    else:  # Debug
+        n_workers = 0
+
+    train_set = TrainDatasetFromFolder('data/voc_train', crop_size=CROP_SIZE, upscale_factor=UPSCALE_FACTOR)
+    val_set = ValDatasetFromFolder('data/voc_val', upscale_factor=UPSCALE_FACTOR)
+    train_loader = DataLoader(dataset=train_set, num_workers=n_workers, batch_size=64, shuffle=True)
+    val_loader = DataLoader(dataset=val_set, num_workers=n_workers, batch_size=1, shuffle=False)
     
     netG = Generator(UPSCALE_FACTOR)
     print('# generator parameters:', sum(param.numel() for param in netG.parameters()))
@@ -84,13 +90,13 @@ if __name__ == '__main__':
             # (2) Update G network: minimize 1-D(G(z)) + Perception Loss + Image Loss + TV Loss
             ###########################
             netG.zero_grad()
-            g_loss = generator_criterion(fake_out, fake_img, real_img)
-            g_loss.backward()
-            
+
             fake_img = netG(z)
             fake_out = netD(fake_img).mean()
-            
-            
+
+            g_loss = generator_criterion(fake_out, fake_img, real_img)
+            g_loss.backward()
+
             optimizerG.step()
 
             # loss for current batch before optimization 
