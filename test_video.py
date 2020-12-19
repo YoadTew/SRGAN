@@ -9,7 +9,7 @@ from torch.autograd import Variable
 from torchvision.transforms import ToTensor, ToPILImage
 from tqdm import tqdm
 
-from model import Generator
+from models.model import Generator
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Test Single Video')

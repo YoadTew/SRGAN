@@ -6,7 +6,7 @@ from PIL import Image
 from torch.autograd import Variable
 from torchvision.transforms import ToTensor, ToPILImage
 
-from model import Generator
+from models.model import Generator
 
 parser = argparse.ArgumentParser(description='Test Single Image')
 parser.add_argument('--upscale_factor', default=4, type=int, help='super resolution upscale factor')

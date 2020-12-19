@@ -13,8 +13,8 @@ from tqdm import tqdm
 
 import pytorch_ssim
 from data_utils import TrainDatasetFromFolder, ValDatasetFromFolder, display_transform
-from loss import GeneratorLoss
-from model import Generator, Discriminator
+from models.loss import GeneratorLoss
+from models.model import Generator, Discriminator
 
 parser = argparse.ArgumentParser(description='Train Super Resolution Models')
 parser.add_argument('--crop_size', default=88, type=int, help='training images crop size')
@@ -148,30 +148,33 @@ if __name__ == '__main__':
                 val_images.extend(
                     [display_transform()(val_hr_restore.squeeze(0)), display_transform()(hr.data.cpu().squeeze(0)),
                      display_transform()(sr.data.cpu().squeeze(0))])
-            val_images = torch.stack(val_images)
-            val_images = torch.chunk(val_images, val_images.size(0) // 15)
-            val_save_bar = tqdm(val_images, desc='[saving training results]')
-            index = 1
-            for image in val_save_bar:
-                image = utils.make_grid(image, nrow=3, padding=5)
-                utils.save_image(image, out_path + 'epoch_%d_index_%d.png' % (epoch, index), padding=5)
-                index += 1
+
+            if epoch % 10 == 0:
+                val_images = torch.stack(val_images)
+                val_images = torch.chunk(val_images, val_images.size(0) // 15)
+                val_save_bar = tqdm(val_images, desc='[saving training results]')
+                index = 1
+                for image in val_save_bar:
+                    image = utils.make_grid(image, nrow=3, padding=5)
+                    utils.save_image(image, out_path + 'epoch_%d_index_%d.png' % (epoch, index), padding=5)
+                    index += 1
+
+        if epoch % 10 == 0:
+            # save model parameters
+            torch.save(netG.state_dict(), 'epochs/netG_epoch_%d_%d.pth' % (UPSCALE_FACTOR, epoch))
+            torch.save(netD.state_dict(), 'epochs/netD_epoch_%d_%d.pth' % (UPSCALE_FACTOR, epoch))
+            # save loss\scores\psnr\ssim
+            results['d_loss'].append(running_results['d_loss'] / running_results['batch_sizes'])
+            results['g_loss'].append(running_results['g_loss'] / running_results['batch_sizes'])
+            results['d_score'].append(running_results['d_score'] / running_results['batch_sizes'])
+            results['g_score'].append(running_results['g_score'] / running_results['batch_sizes'])
+            results['psnr'].append(valing_results['psnr'])
+            results['ssim'].append(valing_results['ssim'])
     
-        # save model parameters
-        torch.save(netG.state_dict(), 'epochs/netG_epoch_%d_%d.pth' % (UPSCALE_FACTOR, epoch))
-        torch.save(netD.state_dict(), 'epochs/netD_epoch_%d_%d.pth' % (UPSCALE_FACTOR, epoch))
-        # save loss\scores\psnr\ssim
-        results['d_loss'].append(running_results['d_loss'] / running_results['batch_sizes'])
-        results['g_loss'].append(running_results['g_loss'] / running_results['batch_sizes'])
-        results['d_score'].append(running_results['d_score'] / running_results['batch_sizes'])
-        results['g_score'].append(running_results['g_score'] / running_results['batch_sizes'])
-        results['psnr'].append(valing_results['psnr'])
-        results['ssim'].append(valing_results['ssim'])
-    
-        if epoch % 10 == 0 and epoch != 0:
-            out_path = 'statistics/'
-            data_frame = pd.DataFrame(
-                data={'Loss_D': results['d_loss'], 'Loss_G': results['g_loss'], 'Score_D': results['d_score'],
-                      'Score_G': results['g_score'], 'PSNR': results['psnr'], 'SSIM': results['ssim']},
-                index=range(1, epoch + 1))
-            data_frame.to_csv(out_path + 'srf_' + str(UPSCALE_FACTOR) + '_train_results.csv', index_label='Epoch')
+        # if epoch % 10 == 0 and epoch != 0:
+        #     out_path = 'statistics/'
+        #     data_frame = pd.DataFrame(
+        #         data={'Loss_D': results['d_loss'], 'Loss_G': results['g_loss'], 'Score_D': results['d_score'],
+        #               'Score_G': results['g_score'], 'PSNR': results['psnr'], 'SSIM': results['ssim']},
+        #         index=range(1, epoch + 1))
+        #     data_frame.to_csv(out_path + 'srf_' + str(UPSCALE_FACTOR) + '_train_results.csv', index_label='Epoch')
