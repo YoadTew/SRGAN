@@ -43,8 +43,11 @@ class GeneratorLoss(nn.Module):
         style_loss = 0.
 
         for ft_out, ft_target in zip(features_out, features_target):
-            gram_out = utils.gram_matrix(ft_out)
-            gram_target = utils.gram_matrix(ft_target)
+            ft_out = utils.ft_map_to_patches(ft_out)
+            ft_target = utils.ft_map_to_patches(ft_target)
+
+            gram_out = utils.patch_gram_matrix(ft_out)
+            gram_target = utils.patch_gram_matrix(ft_target)
 
             style_loss += self.mse_loss(gram_out, gram_target)
 
@@ -52,7 +55,6 @@ class GeneratorLoss(nn.Module):
                0.001 * adversarial_loss + \
                0.006 * perception_loss + \
                2e-8 * tv_loss + 0.006 * style_loss
-
 
 class TVLoss(nn.Module):
     def __init__(self, tv_loss_weight=1):
@@ -73,29 +75,7 @@ class TVLoss(nn.Module):
     def tensor_size(t):
         return t.size()[1] * t.size()[2] * t.size()[3]
 
-def gram_matrix(input):
-    a, b, c, d = input.size()  # a=batch size(=1)
-    # b=number of feature maps
-    # (c,d)=dimensions of a f. map (N=c*d)
 
-    features = input.view(a * b, c * d)  # resise F_XL into \hat F_XL
-
-    G = torch.mm(features, features.t())  # compute the gram product
-
-    # we 'normalize' the values of the gram matrix
-    # by dividing by the number of element in each feature maps.
-    return G.div(a * b * c * d)
-
-class StyleLoss(nn.Module):
-
-    def __init__(self, target_feature):
-        super(StyleLoss, self).__init__()
-        self.target = gram_matrix(target_feature).detach()
-
-    def forward(self, input):
-        G = gram_matrix(input)
-        self.loss = F.mse_loss(G, self.target)
-        return input
 
 if __name__ == "__main__":
     g_loss = GeneratorLoss()
